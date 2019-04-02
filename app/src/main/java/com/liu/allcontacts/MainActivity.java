@@ -1,6 +1,7 @@
 package com.liu.allcontacts;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -42,6 +43,10 @@ public class MainActivity extends AppCompatActivity {
     File file;
     String fileName;
     private String[] title = {"编号","姓名","手机号"};
+    private static String[] PERMISSIONS_STORAGE = {
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.READ_CONTACTS"};
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
         dialog.setCanceledOnTouchOutside(false);
         initListener();
         initHandler();
+        verifyStoragePermissions(this);
     }
 
     private void initHandler(){
@@ -75,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
         start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-               requestPermission(MainActivity.this);
+               startThread();
             }
         });
         look.setOnClickListener(new View.OnClickListener() {
@@ -154,14 +160,7 @@ public class MainActivity extends AppCompatActivity {
         ExcelUtils.writeObjListToExcel(list, fileName, this);
     }
     private  String getSDPath() {
-        File sdDir = null;
-        boolean sdCardExist = Environment.getExternalStorageState().equals(
-                android.os.Environment.MEDIA_MOUNTED);
-        if (sdCardExist) {
-            sdDir = Environment.getExternalStorageDirectory();
-        }
-        String dir = sdDir.toString();
-        return dir;
+        return Environment.getExternalStorageDirectory().getPath();
     }
     public  void makeDir(File dir) {
         if (!dir.getParentFile().exists()) {
@@ -169,48 +168,25 @@ public class MainActivity extends AppCompatActivity {
         }
         dir.mkdir();
     }
-    /**
-     * 请求授权
-     */
-    private void requestPermission(Context context){
 
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED){ //表示未授权时
-            //进行授权
-            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_CONTACTS},1);
-        }else{
-            //调用的方法
-            startThread();
-        }
-    }
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode) {
-            case 1:
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){ //同意权限申请
-                    startThread();
-                }else { //拒绝权限申请
-                    Toast.makeText(this,"权限被拒绝了",Toast.LENGTH_SHORT).show();
-                }
-                break;
-            default:
-                break;
+    public static void verifyStoragePermissions(Activity activity) {
+        try {
+            //检测是否有写的权限
+            int permission = ActivityCompat.checkSelfPermission(activity,
+                    "android.permission.WRITE_EXTERNAL_STORAGE");
+            if (permission != PackageManager.PERMISSION_GRANTED) {
+                // 没有写的权限，去申请写的权限，会弹出对话框
+                ActivityCompat.requestPermissions(activity, PERMISSIONS_STORAGE,1);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
     public void openFile(){
-
-        File file = new File(fileName);
-//获取父目录
-        File parentFlie = new File(file.getParent());
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-//判断是
-    Uri photoUri = FileProvider.getUriForFile(
-                this,
-                getPackageName() + ".provider",
-                parentFlie);
-    intent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
-        startActivity(intent);
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        Uri uri = Uri.parse(Environment.getExternalStorageDirectory().getPath()+ file.getAbsolutePath()); //filename is string with value 46_1244625499.gif
+        intent.setDataAndType(uri, "text/csv");
+        startActivity(Intent.createChooser(intent, "Open folder"));
     }
 }
